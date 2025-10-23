@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bola Berparuh & Target Warna-warni</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden; /* biar tidak ada scroll */
+      background: #eef;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// --- FULLSCREEN CANVAS ---
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+// --- BOLA UTAMA ---
+const bola = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  radius: 25,
+  angle: 0,
+  speed: 3
+};
+
+// --- TARGET-TARGET ---
+const jumlahTarget = 20;
+const targets = [];
+
+function randomColor() {
+  const r = Math.floor(Math.random() * 255);
+  const g = Math.floor(Math.random() * 255);
+  const b = Math.floor(Math.random() * 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+for (let i = 0; i < jumlahTarget; i++) {
+  targets.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    vx: (Math.random() - 0.5) * 2,
+    vy: (Math.random() - 0.5) * 2,
+    radius: 10,
+    color: randomColor()
+  });
+}
+
+// --- POSISI MOUSE ---
+let mouse = {x: bola.x, y: bola.y};
+canvas.addEventListener("mousemove", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
+});
+
+// --- GERAKAN BOLA (menuju mouse) ---
+function updateBola() {
+  const dx = mouse.x - bola.x;
+  const dy = mouse.y - bola.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+
+  if (dist > 1) {
+    bola.x += (dx / dist) * bola.speed;
+    bola.y += (dy / dist) * bola.speed;
+  }
+
+  bola.angle = Math.atan2(dy, dx);
+}
+
+// --- GERAK TARGET ---
+function updateTargets() {
+  for (let i = 0; i < targets.length; i++) {
+    const t = targets[i];
+    const dx = bola.x - t.x;
+    const dy = bola.y - t.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist < 60) {
+      t.vx = 0;
+      t.vy = 0;
+    } else if (dist < 120) {
+      t.vx = dx / dist * 1.5;
+      t.vy = dy / dist * 1.5;
+    } else {
+      t.vx += (Math.random() - 0.5) * 0.2;
+      t.vy += (Math.random() - 0.5) * 0.2;
+      const maxSpeed = 1.5;
+      const speed = Math.sqrt(t.vx*t.vx + t.vy*t.vy);
+      if (speed > maxSpeed) {
+        t.vx = (t.vx / speed) * maxSpeed;
+        t.vy = (t.vy / speed) * maxSpeed;
+      }
+    }
+
+    // Hindari tabrakan antar target
+    for (let j = 0; j < targets.length; j++) {
+      if (i === j) continue;
+      const t2 = targets[j];
+      const dx2 = t.x - t2.x;
+      const dy2 = t.y - t2.y;
+      const dist2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+      if (dist2 < t.radius * 2) {
+        t.vx += dx2 / dist2 * 0.1;
+        t.vy += dy2 / dist2 * 0.1;
+      }
+    }
+
+    // Update posisi
+    t.x += t.vx;
+    t.y += t.vy;
+
+    // Pantul tepi layar
+    if (t.x < t.radius || t.x > canvas.width - t.radius) t.vx *= -1;
+    if (t.y < t.radius || t.y > canvas.height - t.radius) t.vy *= -1;
+  }
+}
+
+// --- GAMBAR SEMUA OBJEK ---
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // gambar bola utama
+  ctx.save();
+  ctx.translate(bola.x, bola.y);
+  ctx.rotate(bola.angle);
+
+  // tubuh bola
+  ctx.beginPath();
+  ctx.arc(0, 0, bola.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "orange";
+  ctx.fill();
+  ctx.stroke();
+
+  // paruh — keluar dari bola
+  ctx.beginPath();
+  ctx.moveTo(bola.radius, 0);
+  ctx.lineTo(bola.radius + 20, -8);
+  ctx.lineTo(bola.radius + 20, 8);
+  ctx.closePath();
+  ctx.fillStyle = "red";
+  ctx.fill();
+
+  ctx.restore();
+
+  // gambar target warna-warni
+  for (const t of targets) {
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
+    ctx.fillStyle = t.color;
+    ctx.fill();
+  }
+}
+
+// --- LOOP UTAMA ---
+function loop() {
+  updateBola();
+  updateTargets();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
